@@ -19,6 +19,7 @@ const chainIds = {
   ganache: 1337,
   hardhat: 31337,
   mainnet: 1,
+  "base-mainnet": 8453,
   "optimism-mainnet": 10,
   "polygon-mainnet": 137,
   "polygon-mumbai": 80001,
@@ -63,6 +64,7 @@ const config: HardhatUserConfig = {
       polygon: vars.get("POLYGONSCAN_API_KEY", ""),
       polygonMumbai: vars.get("POLYGONSCAN_API_KEY", ""),
       sepolia: vars.get("ETHERSCAN_API_KEY", ""),
+      base: vars.get("BASE_API_KEY", ""),
     },
   },
   gasReporter: {
@@ -89,6 +91,7 @@ const config: HardhatUserConfig = {
     avalanche: getChainConfig("avalanche"),
     bsc: getChainConfig("bsc"),
     mainnet: getChainConfig("mainnet"),
+    base: getChainConfig("base-mainnet"),
     optimism: getChainConfig("optimism-mainnet"),
     "polygon-mainnet": getChainConfig("polygon-mainnet"),
     "polygon-mumbai": getChainConfig("polygon-mumbai"),
