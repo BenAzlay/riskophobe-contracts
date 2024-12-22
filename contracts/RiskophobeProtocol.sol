@@ -147,20 +147,15 @@ contract RiskophobeProtocol {
         uint256 creatorFee = (collateralAmount * offer.creatorFeeBp) / 10000;
         uint256 netCollateralAmount = collateralAmount - creatorFee;
 
-        // Transfer sold tokens to the participant
-        offer.soldToken.safeTransfer(msg.sender, _soldTokenAmount);
+        offer.soldTokenAmount -= _soldTokenAmount;
+        offer.collateralBalance += netCollateralAmount;
+        collateralDeposits[_offerId][msg.sender] += netCollateralAmount;
 
-        // Accumulate creator fees
         if (creatorFee > 0) {
             creatorFees[offer.creator][address(offer.collateralToken)] += creatorFee;
         }
 
-        // Update offer
-        offer.soldTokenAmount -= _soldTokenAmount;
-        offer.collateralBalance += netCollateralAmount;
-
-        // Update deposit
-        collateralDeposits[_offerId][msg.sender] += netCollateralAmount;
+        offer.soldToken.safeTransfer(msg.sender, _soldTokenAmount);
 
         emit TokensBought(_offerId, msg.sender, _soldTokenAmount);
     }
@@ -184,15 +179,14 @@ contract RiskophobeProtocol {
 
         uint256 soldTokenAmount = (_collateralAmount * offer.exchangeRate) / 1e18;
 
-        // Transfer sold tokens to the participant
-        offer.collateralToken.safeTransfer(msg.sender, _collateralAmount);
-
         // Update offer
         offer.soldTokenAmount += soldTokenAmount;
         offer.collateralBalance -= _collateralAmount;
 
         // Update deposit
         collateralDeposits[_offerId][msg.sender] -= _collateralAmount;
+
+        offer.collateralToken.safeTransfer(msg.sender, _collateralAmount);
 
         emit TokensReturned(_offerId, msg.sender, _collateralAmount);
     }
@@ -207,6 +201,9 @@ contract RiskophobeProtocol {
         require(offer.collateralBalance == 0 || block.timestamp > offer.endTime, "Offer is still ongoing");
         require(msg.sender == offer.creator, "Only the creator can remove the offer");
 
+        // Delete the offer
+        delete offers[_offerId];
+
         // Transfer remaining sold tokens and collateral back to the creator
         if (offer.soldTokenAmount > 0) {
             offer.soldToken.safeTransfer(offer.creator, offer.soldTokenAmount);
@@ -214,9 +211,6 @@ contract RiskophobeProtocol {
         if (offer.collateralBalance > 0) {
             offer.collateralToken.safeTransfer(offer.creator, offer.collateralBalance);
         }
-
-        // Delete the offer
-        delete offers[_offerId];
 
         emit OfferRemoved(_offerId);
     }
