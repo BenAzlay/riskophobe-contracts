@@ -84,9 +84,6 @@ contract RiskophobeProtocol {
 
         IERC20 soldToken = IERC20(_soldToken);
 
-        // Transfer the sold tokens from the creator to the contract
-        soldToken.safeTransferFrom(msg.sender, address(this), _soldTokenAmount);
-
         // Create and store the new offer
         offers.push(
             Offer({
@@ -102,6 +99,9 @@ contract RiskophobeProtocol {
             })
         );
 
+        // Transfer the sold tokens from the creator to the contract
+        soldToken.safeTransferFrom(msg.sender, address(this), _soldTokenAmount);
+
         emit OfferCreated(offers.length - 1, msg.sender, _collateralToken, _soldToken, _soldTokenAmount, _exchangeRate);
     }
 
@@ -112,15 +112,16 @@ contract RiskophobeProtocol {
     /// @param _soldTokenAmount The amount of sold tokens to add to the offer
     function addSoldTokens(uint256 _offerId, uint256 _soldTokenAmount) external {
         Offer storage offer = offers[_offerId];
+
         require(msg.sender == offer.creator, "Only the creator can add sold tokens");
         require(block.timestamp <= offer.endTime, "Offer has ended");
-        require(_soldTokenAmount > 0, "Collateral amount must be greater than zero");
-
-        // Transfer collateral from the participant to the contract
-        offer.soldToken.safeTransferFrom(msg.sender, address(this), _soldTokenAmount);
+        require(_soldTokenAmount > 0, "Sold token amount must be greater than zero");
 
         // Update state
         offer.soldTokenAmount += _soldTokenAmount;
+
+        // Transfer collateral from the participant to the contract
+        offer.soldToken.safeTransferFrom(msg.sender, address(this), _soldTokenAmount);
 
         emit SoldTokensAdded(_offerId, _soldTokenAmount);
     }
@@ -201,6 +202,10 @@ contract RiskophobeProtocol {
         // Update deposit
         collateralDeposits[_offerId][msg.sender] -= _collateralAmount;
 
+        // Transfer the sold tokens from the buyer to the contract
+        offer.soldToken.safeTransferFrom(msg.sender, address(this), soldTokenAmount);
+
+        // Transfer the collateral to the buyer
         offer.collateralToken.safeTransfer(msg.sender, _collateralAmount);
 
         emit TokensReturned(_offerId, msg.sender, _collateralAmount);
