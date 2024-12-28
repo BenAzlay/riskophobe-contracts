@@ -217,7 +217,7 @@ contract RiskophobeProtocol {
     /// Emits a {OfferRemoved} event.
     /// @param _offerId THe ID of the offer being removed.
     function removeOffer(uint256 _offerId) external {
-        Offer storage offer = offers[_offerId];
+        Offer memory offer = offers[_offerId];
         // An offer can be removed only if it has ended OR if no collateral was deposited into it
         require(offer.collateralBalance == 0 || block.timestamp > offer.endTime, "Offer is still ongoing");
         require(msg.sender == offer.creator, "Only the creator can remove the offer");
