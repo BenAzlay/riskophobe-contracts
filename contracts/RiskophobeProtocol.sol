@@ -133,35 +133,50 @@ contract RiskophobeProtocol {
     /// Else the corresponding collateralDeposits entry is set
     /// Emits an {TokensBought} event.
     /// @param _offerId The ID of the offer from which to buy
-    /// @param _soldTokenAmount The amount of sold tokens to buy
-    function buyTokens(uint256 _offerId, uint256 _soldTokenAmount) external {
+    /// @param _soldTokenAmount The amount of sold tokens to receive
+    /// @param _maxCollateralAmount The maximum amount of collateral to provide
+    function buyTokens(uint256 _offerId, uint256 _soldTokenAmount, uint256 _maxCollateralAmount) external {
         Offer storage offer = offers[_offerId];
+
         require(block.timestamp >= offer.startTime, "Offer has not yet started");
         require(block.timestamp <= offer.endTime, "Offer has ended");
         require(_soldTokenAmount > 0, "Sold token amount must be greater than zero");
         require(_soldTokenAmount <= offer.soldTokenAmount, "Not enough sold tokens available");
 
+        // Calculate the required collateral amount based on the fixed exchange rate
         uint256 collateralAmount = (_soldTokenAmount * 1e18) / offer.exchangeRate;
+
+        // Slippage control: Ensure the collateral amount does not exceed the user's maximum
+        require(collateralAmount <= _maxCollateralAmount, "Slippage exceeded");
 
         // Compute creator fees
         uint256 creatorFee = (collateralAmount * offer.creatorFeeBp) / 10000;
         uint256 netCollateralAmount = collateralAmount - creatorFee;
 
+        // Update the offer state before making transactions
         offer.soldTokenAmount -= _soldTokenAmount;
         offer.collateralBalance += netCollateralAmount;
+
+        // Update the buyer's collateral deposit
         collateralDeposits[_offerId][msg.sender] += netCollateralAmount;
 
+        // Accumulate fees for the offer creator
         if (creatorFee > 0) {
             creatorFees[offer.creator][address(offer.collateralToken)] += creatorFee;
         }
 
+        // Transfer the required collateral tokens from the buyer to the contract
+        offer.collateralToken.safeTransferFrom(msg.sender, address(this), collateralAmount);
+
+        // Transfer the sold tokens to the buyer
         offer.soldToken.safeTransfer(msg.sender, _soldTokenAmount);
 
         emit TokensBought(_offerId, msg.sender, _soldTokenAmount);
     }
 
     /// @notice Buyer returns the sold tokens to offer
-    /// @dev Allows a buyer to return all or part of the bought sold token at the fixed exchange rate for collateral tokens
+    /// @dev Allows a buyer to return all or part of the bought sold token at the fixed exchange rate
+    /// The buyer receives all or part of their collateral tokens in return
     /// The retrieved amount is deduced from the corresponding collateralDeposits entry
     /// Else the corresponding collateralDeposits value is set
     /// Emits an {TokensReturned} event.
