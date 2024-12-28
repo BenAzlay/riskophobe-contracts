@@ -143,6 +143,7 @@ contract RiskophobeProtocol {
         require(block.timestamp <= offer.endTime, "Offer has ended");
         require(_soldTokenAmount > 0, "Sold token amount must be greater than zero");
         require(_soldTokenAmount <= offer.soldTokenAmount, "Not enough sold tokens available");
+        require(_maxCollateralAmount > 0, "Max collateral amount must be greater than zero");
 
         // Calculate the required collateral amount based on the fixed exchange rate
         uint256 collateralAmount = (_soldTokenAmount * 1e18) / offer.exchangeRate;
@@ -242,7 +243,10 @@ contract RiskophobeProtocol {
     /// @param _tokenAddress The address of the token of which to claim fees
     /// @param _claimAmount The amount of fees to claim for the specified token (part or all the available fees)
     function claimFees(address _tokenAddress, uint256 _claimAmount) external {
+        require(_claimAmount > 0, "Claim amount must be greater than zero");
+
         uint256 maxClaimAmount = creatorFees[msg.sender][_tokenAddress];
+
         require(maxClaimAmount > 0, "No fees available to claim");
         require(maxClaimAmount >= _claimAmount, "claimAmount is greater than available fees");
 
