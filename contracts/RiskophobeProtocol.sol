@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
@@ -9,7 +9,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
  * @dev A protocol for creating and managing token option offers.
  */
 contract RiskophobeProtocol {
-    using SafeERC20 for IERC20;
+    using SafeERC20 for IERC20Metadata;
 
     /// @notice Represents an Offer in the protocol.
     struct Offer {
@@ -17,8 +17,8 @@ contract RiskophobeProtocol {
         uint16 creatorFeeBp; // Creator fee in basis points
         uint32 startTime; // Offer start timestamp
         uint32 endTime; // Offer end timestamp
-        IERC20 collateralToken; // Token used as collateral
-        IERC20 soldToken; // Token being sold
+        IERC20Metadata collateralToken; // Token used as collateral
+        IERC20Metadata soldToken; // Token being sold
         uint256 soldTokenAmount; // Amount of sold token available in the offer
         uint256 exchangeRate; // Exchange rate: amount of soldToken per collateralToken
         uint256 collateralBalance; // Amount of collateral token in the offer
@@ -82,7 +82,7 @@ contract RiskophobeProtocol {
         require(_startTime < _endTime, "Start time must be before end time");
         require(_creatorFeeBp <= 10000, "Fee basis points must not exceed 100%");
 
-        IERC20 soldToken = IERC20(_soldToken);
+        IERC20Metadata soldToken = IERC20Metadata(_soldToken);
 
         // Create and store the new offer
         offers.push(
@@ -91,7 +91,7 @@ contract RiskophobeProtocol {
                 creatorFeeBp: _creatorFeeBp,
                 startTime: _startTime,
                 endTime: _endTime,
-                collateralToken: IERC20(_collateralToken),
+                collateralToken: IERC20Metadata(_collateralToken),
                 soldToken: soldToken,
                 soldTokenAmount: _soldTokenAmount,
                 exchangeRate: _exchangeRate,
@@ -254,7 +254,7 @@ contract RiskophobeProtocol {
         creatorFees[msg.sender][_tokenAddress] = maxClaimAmount - _claimAmount;
 
         // Transfer the accumulated fees to the creator
-        IERC20(_tokenAddress).safeTransfer(msg.sender, _claimAmount);
+        IERC20Metadata(_tokenAddress).safeTransfer(msg.sender, _claimAmount);
 
         emit FeesClaimed(msg.sender, _tokenAddress, _claimAmount);
     }

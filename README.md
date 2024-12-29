@@ -161,16 +161,6 @@ Deploy the contracts to Hardhat Network:
 npm run deploy:contracts
 ```
 
-### Tasks
-
-#### Deploy Lock
-
-Deploy a new instance of the Lock contract via a task:
-
-```sh
-npm run task:deployLock --unlock 100 --value 0.1
-```
-
 ### Syntax Highlighting
 
 If you use VSCode, you can get Solidity syntax highlighting with the
