@@ -35,6 +35,11 @@ jobs:
       - name: "Compile the contracts and generate the TypeChain bindings"
         run: "bun run typechain"
 
+      - name: "Set Hardhat Vars"
+        run: |
+          npx hardhat vars set MNEMONIC "${{ secrets.MNEMONIC }}"
+          npx hardhat vars set INFURA_API_KEY "${{ secrets.INFURA_API_KEY }}"
+
       - name: "Test the contracts and generate the coverage report"
         run: "bun run coverage"
 
