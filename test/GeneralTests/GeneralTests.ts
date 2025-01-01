@@ -33,7 +33,7 @@ describe("Riskophobe General Tests", function () {
         {
           forking: {
             jsonRpcUrl, // mainnet rpc
-            // blockNumber: 21523652, // Dec-31-2024 04:30:11 PM +UTC
+            blockNumber: 21523652, // Dec-31-2024 04:30:11 PM +UTC
           },
         },
       ],
