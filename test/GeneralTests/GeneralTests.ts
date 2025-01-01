@@ -24,7 +24,7 @@ describe("Riskophobe General Tests", function () {
   before(async function () {
     [deployer, offererAccount] = await ethers.getSigners();
 
-    const jsonRpcUrl: string = "https://mainnet.infura.io/v3/" + infuraApiKey;
+    const jsonRpcUrl: string = `https://mainnet.infura.io/v3/${infuraApiKey}`;
 
     // Reset hardhat fork to avoid changes affecting subsequent tests
     await network.provider.request({
@@ -33,7 +33,7 @@ describe("Riskophobe General Tests", function () {
         {
           forking: {
             jsonRpcUrl, // mainnet rpc
-            blockNumber: 21523652, // Dec-31-2024 04:30:11 PM +UTC
+            // blockNumber: 21523652, // Dec-31-2024 04:30:11 PM +UTC
           },
         },
       ],
