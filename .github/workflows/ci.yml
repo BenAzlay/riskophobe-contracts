@@ -1,7 +1,7 @@
 name: "CI"
 
 env:
-  MNEMONIC: "test test test test test test test test test test test junk"
+  MNEMONIC: ${{ secrets.MNEMONIC }}
   INFURA_API_KEY: ${{ secrets.INFURA_API_KEY }}
 
 on:
