@@ -40,8 +40,8 @@ jobs:
           npx hardhat vars set MNEMONIC "${{ secrets.MNEMONIC }}"
           npx hardhat vars set INFURA_API_KEY "${{ secrets.INFURA_API_KEY }}"
 
-      - name: "Test the contracts and generate the coverage report"
-        run: "bun run coverage"
+      - name: "Test the contracts"
+        run: "bun run test"
 
       - name: "Add test summary"
         run: |
