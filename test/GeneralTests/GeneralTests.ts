@@ -1,14 +1,14 @@
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
-import hre, { ethers, network } from "hardhat";
+import { ethers, network } from "hardhat";
 import { vars } from "hardhat/config";
 
 import { IERC20Metadata, RiskophobeProtocol } from "../../types";
 
 describe("Riskophobe General Tests", function () {
   let deployer: SignerWithAddress;
-  let otherAccount: SignerWithAddress;
+  let offererAccount: SignerWithAddress;
 
   let soldToken: IERC20Metadata;
   let collateralToken: IERC20Metadata;
@@ -16,10 +16,13 @@ describe("Riskophobe General Tests", function () {
   let riskophobeContract: RiskophobeProtocol;
   let riskophobeContractAddress: string;
 
+  let deployerCollateralTokenInitialBalance: bigint;
+  let offererSoldTokenInitialBalance: bigint;
+
   const infuraApiKey: string = vars.get("INFURA_API_KEY");
 
   before(async function () {
-    [deployer, otherAccount] = await ethers.getSigners();
+    [deployer, offererAccount] = await ethers.getSigners();
 
     const jsonRpcUrl: string = "https://mainnet.infura.io/v3/" + infuraApiKey;
 
@@ -35,6 +38,16 @@ describe("Riskophobe General Tests", function () {
         },
       ],
     });
+
+    // Load testing addresses with enough ETH to pay for gas
+    await network.provider.send("hardhat_setBalance", [
+      deployer.address,
+      "0x314DC6448D932AE0A456589C0000", // 999999999999999 ETH
+    ]);
+    await network.provider.send("hardhat_setBalance", [
+      offererAccount.address,
+      "0x314DC6448D932AE0A456589C0000", // 999999999999999 ETH
+    ]);
 
     // Sold token is WETH
     soldToken = <IERC20Metadata>(
@@ -62,8 +75,8 @@ describe("Riskophobe General Tests", function () {
     const impersonatedSigner = await ethers.getSigner(usdcRichAddress);
 
     // Transfer 1000 USDC to deployer
-    const usdcAmount = ethers.parseUnits("1000", 6);
-    await collateralToken.connect(impersonatedSigner).transfer(deployer.address, usdcAmount);
+    deployerCollateralTokenInitialBalance = ethers.parseUnits("1000", 6);
+    await collateralToken.connect(impersonatedSigner).transfer(deployer.address, deployerCollateralTokenInitialBalance);
 
     // Stop impersonation
     await network.provider.request({
@@ -82,37 +95,49 @@ describe("Riskophobe General Tests", function () {
     const impersonatedSigner = await ethers.getSigner(wethRichAddress);
 
     // Transfer 10 WETH to deployer
-    const wethAmount = ethers.parseUnits("10", 18);
-    await soldToken.connect(impersonatedSigner).transfer(otherAccount.address, wethAmount);
+    offererSoldTokenInitialBalance = ethers.parseEther("10");
+    await soldToken.connect(impersonatedSigner).transfer(offererAccount.address, offererSoldTokenInitialBalance);
 
     // Stop impersonation
     await network.provider.request({
       method: "hardhat_stopImpersonatingAccount",
       params: [wethRichAddress],
     });
-    const deployerUSDCBalance = await soldToken.balanceOf(otherAccount.address);
-    expect(deployerUSDCBalance).to.equal(wethAmount);
   });
 
   describe("Offer management", function () {
-    it("Should fail if start time is greater than end time", async function () {
+    it("Should create an offer of WETH for USDC with 1:1000 exchange rate", async function () {
       const latestTime = await time.latest();
-      const _startTime = latestTime + 10000;
-      const _endTime = latestTime + 1000;
+      const _startTime = latestTime;
+      const _endTime = latestTime + 10000;
 
       const _collateralToken = await collateralToken.getAddress();
       const _soldToken = await soldToken.getAddress();
-      const _soldTokenAmount = ethers.parseEther("100");
-      const _exchangeRate = ethers.parseUnits("1", 18); // 1 COLL = 1 SOLD
+      const _soldTokenAmount = ethers.parseEther("2");
+      const _exchangeRate = ethers.parseUnits("1", 18); // 1 WETH = 1000 USDC
       const _creatorFeeBp = 100; // 1% fee
 
       // Approve the RiskophobeProtocol contract to transfer sold tokens
-      await soldToken.connect(deployer).approve(riskophobeContractAddress, _soldTokenAmount);
+      await soldToken.connect(offererAccount).approve(riskophobeContractAddress, _soldTokenAmount);
 
-      // Attempt to create an offer and expect it to revert
+      // Test that startTime cannot be after endTime
       await expect(
         riskophobeContract
-          .connect(deployer)
+          .connect(offererAccount)
+          .createOffer(
+            _collateralToken,
+            _soldToken,
+            _soldTokenAmount,
+            _exchangeRate,
+            _creatorFeeBp,
+            _startTime + 10001,
+            _endTime,
+          ),
+      ).to.be.revertedWith("Start time must be before end time");
+
+      await expect(
+        riskophobeContract
+          .connect(offererAccount)
           .createOffer(
             _collateralToken,
             _soldToken,
@@ -122,37 +147,15 @@ describe("Riskophobe General Tests", function () {
             _startTime,
             _endTime,
           ),
-      ).to.be.revertedWith("Start time must be before end time");
+      ).to.not.be.reverted;
+
+      const newOffererSoldTokenBalance = await soldToken.balanceOf(offererAccount.address);
+      expect(newOffererSoldTokenBalance).to.be.eq(
+        offererSoldTokenInitialBalance - _soldTokenAmount,
+        "Initial balance minus amount offered",
+      );
+      const newContractSoldTokenBalance = await soldToken.balanceOf(riskophobeContractAddress);
+      expect(newContractSoldTokenBalance).to.be.eq(_soldTokenAmount, "Amount offered");
     });
-  });
-
-  it("Should fail if offer creator does not have enough sold token balance", async function () {
-    const latestTime = await time.latest();
-    const _startTime = latestTime;
-    const _endTime = latestTime + 10000;
-
-    const _collateralToken = await collateralToken.getAddress();
-    const _soldToken = await soldToken.getAddress();
-    const _soldTokenAmount = ethers.parseEther("100");
-    const _exchangeRate = ethers.parseUnits("1", 18); // 1 COLL = 1 SOLD
-    const _creatorFeeBp = 100; // 1% fee
-
-    // Approve the RiskophobeProtocol contract to transfer sold tokens
-    await soldToken.connect(deployer).approve(riskophobeContractAddress, _soldTokenAmount);
-
-    // Attempt to create an offer and expect it to revert
-    await expect(
-      riskophobeContract
-        .connect(deployer)
-        .createOffer(
-          _collateralToken,
-          _soldToken,
-          _soldTokenAmount,
-          _exchangeRate,
-          _creatorFeeBp,
-          _startTime,
-          _endTime,
-        ),
-    ).to.be.reverted;
   });
 });

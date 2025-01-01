@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
  * @title RiskophobeProtocol
@@ -28,10 +28,10 @@ contract RiskophobeProtocol {
     Offer[] public offers;
 
     /// @notice Tracks collateral deposits for each offer and participant.
-    mapping(uint256 => mapping(address => uint256)) public collateralDeposits;
+    mapping(uint256 offerId => mapping(address => uint256)) public collateralDeposits;
 
     /// @notice Mapping to store accumulated creator fees for each creator and token.
-    mapping(address => mapping(address => uint256)) public creatorFees;
+    mapping(address creator => mapping(address => uint256)) public creatorFees;
 
     /// @notice Event emitted when a new offer is created.
     event OfferCreated(
@@ -80,7 +80,7 @@ contract RiskophobeProtocol {
         require(_soldTokenAmount > 0, "Sold token amount must be greater than zero");
         require(_exchangeRate > 0, "Exchange rate must be greater than zero");
         require(_startTime < _endTime, "Start time must be before end time");
-        require(_creatorFeeBp <= 10000, "Fee basis points must not exceed 100%");
+        require(_creatorFeeBp <= 5000, "Fee basis points must not exceed 50%");
 
         IERC20Metadata soldToken = IERC20Metadata(_soldToken);
 
