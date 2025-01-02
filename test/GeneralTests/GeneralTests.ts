@@ -135,6 +135,7 @@ describe("Riskophobe General Tests", function () {
           ),
       ).to.be.revertedWith("Start time must be before end time");
 
+      // Test that startTime is not in the past
       await expect(
         riskophobeContract
           .connect(offererAccount)
@@ -144,9 +145,22 @@ describe("Riskophobe General Tests", function () {
             _soldTokenAmount,
             _exchangeRate,
             _creatorFeeBp,
-            _startTime,
+            _startTime - 1,
             _endTime,
           ),
+      ).to.be.revertedWith("Start time cannot be in the past");
+
+      // Working createOffer txn
+      await expect(
+        riskophobeContract.connect(offererAccount).createOffer(
+          _collateralToken,
+          _soldToken,
+          _soldTokenAmount,
+          _exchangeRate,
+          _creatorFeeBp,
+          _startTime + 40, // Account for delay since _startTime init by adding 40s
+          _endTime,
+        ),
       ).to.not.be.reverted;
 
       const newOffererSoldTokenBalance = await soldToken.balanceOf(offererAccount.address);

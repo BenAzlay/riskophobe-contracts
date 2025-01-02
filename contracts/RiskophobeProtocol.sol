@@ -79,6 +79,7 @@ contract RiskophobeProtocol {
         require(_soldToken != address(0), "Invalid sold token address");
         require(_soldTokenAmount > 0, "Sold token amount must be greater than zero");
         require(_exchangeRate > 0, "Exchange rate must be greater than zero");
+        require(_startTime >= block.timestamp, "Start time cannot be in the past");
         require(_startTime < _endTime, "Start time must be before end time");
         require(_creatorFeeBp <= 5000, "Fee basis points must not exceed 50%");
 
