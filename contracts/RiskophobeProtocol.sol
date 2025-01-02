@@ -46,7 +46,12 @@ contract RiskophobeProtocol {
     /// @notice Event emitted when a creator add more sold tokens into an offer.
     event SoldTokensAdded(uint256 indexed offerId, uint256 amount);
 
-    event TokensBought(uint256 indexed offerId, address indexed participant, uint256 soldTokenAmount);
+    event TokensBought(
+        uint256 indexed offerId,
+        address indexed participant,
+        uint256 soldTokenAmount,
+        uint256 netCollateralAmount
+    );
     event TokensReturned(uint256 indexed offerId, address indexed participant, uint256 collateralAmount);
 
     /// @notice Event emitted when an offer is removed.
@@ -59,6 +64,14 @@ contract RiskophobeProtocol {
     /// @dev Allows an offer creator to specify the exchange rate, collateral, and sold token details.
     /// The creator must deposit the required collateral upfront.
     /// Emits an {OfferCreated} event.
+    /// @dev _exchangeRate is computed as with the following formula:
+    /// ((soldTokenAmount * 10**soldTokenDecimals) * 10**18) / (collateralToken * 10**collateralTokenDecimals))
+    /// @dev EXAMPLE 1: 1 WETH sold for 1000 USDC collateral
+    /// _exchangeRate = ((1 * 10**18) * 10**18) / (1000 * 10**6) = 1000000000000000000000000000
+    /// @dev EXAMPLE 2: 30 WETH sold for 1 WBTC collateral
+    /// _exchangeRate = ((30 * 10**18) * 10**18) / (1 * 10**8) = 300000000000000000000000000000
+    /// @dev EXAMPLE 3: 1 WBTC sold for 80000 USDC collateral
+    /// _exchangeRate = ((1 * 10**8) * 10**18) / (80000 * 10**6) = 1250000000000000
     /// @param _collateralToken The ERC20 token used as collateral in the offer.
     /// @param _soldToken The ERC20 token being sold in the offer.
     /// @param _soldTokenAmount The total amount of the sold token to be offered.
@@ -135,29 +148,30 @@ contract RiskophobeProtocol {
     /// Else the corresponding collateralDeposits entry is set
     /// Emits an {TokensBought} event.
     /// @param _offerId The ID of the offer from which to buy
-    /// @param _soldTokenAmount The amount of sold tokens to receive
-    /// @param _maxCollateralAmount The maximum amount of collateral to provide
-    function buyTokens(uint256 _offerId, uint256 _soldTokenAmount, uint256 _maxCollateralAmount) external {
+    /// @param _collateralAmountIn The maximum amount of collateral to provide
+    /// @param _minSoldTokenAmountOut The minimum amount of sold tokens to receive (can be 0)
+    function buyTokens(uint256 _offerId, uint256 _collateralAmountIn, uint256 _minSoldTokenAmountOut) external {
         Offer storage offer = offers[_offerId];
 
         require(block.timestamp >= offer.startTime, "Offer has not yet started");
         require(block.timestamp <= offer.endTime, "Offer has ended");
-        require(_soldTokenAmount > 0, "Sold token amount must be greater than zero");
-        require(_soldTokenAmount <= offer.soldTokenAmount, "Not enough sold tokens available");
-        require(_maxCollateralAmount > 0, "Max collateral amount must be greater than zero");
-
-        // Calculate the required collateral amount based on the fixed exchange rate
-        uint256 collateralAmount = (_soldTokenAmount * 1e18) / offer.exchangeRate;
-
-        // Slippage control: Ensure the collateral amount does not exceed the user's maximum
-        require(collateralAmount <= _maxCollateralAmount, "Slippage exceeded");
+        require(_collateralAmountIn > 0, "Collateral token amount in must be greater than zero");
 
         // Compute creator fees
-        uint256 creatorFee = (collateralAmount * offer.creatorFeeBp) / 10000;
-        uint256 netCollateralAmount = collateralAmount - creatorFee;
+        uint256 creatorFee = (_collateralAmountIn * offer.creatorFeeBp) / 10000;
+        uint256 netCollateralAmount = _collateralAmountIn - creatorFee;
+
+        // Calculate received sold token amount based on exchange rate and creator fees
+        uint256 soldTokenAmount = (netCollateralAmount * offer.exchangeRate) / 1e18;
+
+        // Slippage control
+        require(soldTokenAmount >= _minSoldTokenAmountOut, "Slippage exceeded");
+
+        // Ensure there are enough sold tokens available in the offer
+        require(soldTokenAmount <= offer.soldTokenAmount, "Not enough sold tokens available");
 
         // Update the offer state before making transactions
-        offer.soldTokenAmount -= _soldTokenAmount;
+        offer.soldTokenAmount -= soldTokenAmount;
         offer.collateralBalance += netCollateralAmount;
 
         // Update the buyer's collateral deposit
@@ -169,12 +183,12 @@ contract RiskophobeProtocol {
         }
 
         // Transfer the required collateral tokens from the buyer to the contract
-        offer.collateralToken.safeTransferFrom(msg.sender, address(this), collateralAmount);
+        offer.collateralToken.safeTransferFrom(msg.sender, address(this), _collateralAmountIn);
 
         // Transfer the sold tokens to the buyer
-        offer.soldToken.safeTransfer(msg.sender, _soldTokenAmount);
+        offer.soldToken.safeTransfer(msg.sender, soldTokenAmount);
 
-        emit TokensBought(_offerId, msg.sender, _soldTokenAmount);
+        emit TokensBought(_offerId, msg.sender, soldTokenAmount, netCollateralAmount);
     }
 
     /// @notice Buyer returns the sold tokens to offer
