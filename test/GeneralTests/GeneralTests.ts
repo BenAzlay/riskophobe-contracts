@@ -65,7 +65,7 @@ describe("Riskophobe General Tests", function () {
     riskophobeContractAddress = await riskophobeContract.getAddress();
   });
 
-  it("transfer 10000 collateral tokens (USDC) to account 1", async () => {
+  it("transfer 10000 collateral tokens (USDC) to buyerAccount", async () => {
     // Fork Ethereum Mainnet and impersonate a USDC-rich address
     const usdcRichAddress = "0x55fe002aeff02f77364de339a1292923a15844b8"; // USDC-rich address
     await network.provider.request({
@@ -87,7 +87,7 @@ describe("Riskophobe General Tests", function () {
     });
   });
 
-  it("transfer 10 sold tokens (WETH) to account 2", async () => {
+  it("transfer 10 sold tokens (WETH) to offererAccount", async () => {
     // Fork Ethereum Mainnet and impersonate a WETH-rich address
     const wethRichAddress = "0x57757E3D981446D585Af0D9Ae4d7DF6D64647806"; // WETH-rich address
     await network.provider.request({
@@ -264,12 +264,59 @@ describe("Riskophobe General Tests", function () {
       const boughtAmount = ethers.parseEther("0.99");
       const newBuyerSoldTokenBalance = await soldToken.balanceOf(buyerAccount.address);
       expect(newBuyerSoldTokenBalance).to.be.eq(boughtAmount, "Bought amount sould be 0.99 WETH");
+
       const remainingSoldTokens = ethers.parseEther("2.01");
       const newContractSoldTokenBalance = await soldToken.balanceOf(riskophobeContractAddress);
       expect(newContractSoldTokenBalance).to.be.eq(
         remainingSoldTokens,
-        "Sold token amount remaining should be 1.01 WETH",
+        "Contract sold token amount remaining should be 1.01 WETH",
       );
     });
+
+    it("Should fail if offerer tries to remove offer before it ends", async function () {
+      await expect(riskophobeContract.connect(offererAccount).removeOffer(0)).to.be.revertedWith(
+        "Offer is still ongoing",
+      );
+    });
+
+    it("transfer 1 sold token (WETH) to buyerAccount", async () => {
+      // Fork Ethereum Mainnet and impersonate a WETH-rich address
+      const wethRichAddress = "0x57757E3D981446D585Af0D9Ae4d7DF6D64647806"; // WETH-rich address
+      await network.provider.request({
+        method: "hardhat_impersonateAccount",
+        params: [wethRichAddress],
+      });
+      const impersonatedSigner = await ethers.getSigner(wethRichAddress);
+
+      // Transfer 10 WETH to buyerAccount
+      offererSoldTokenBalance = ethers.parseEther("10");
+      await soldToken.connect(impersonatedSigner).transfer(buyerAccount.address, offererSoldTokenBalance);
+
+      // Stop impersonation
+      await network.provider.request({
+        method: "hardhat_stopImpersonatingAccount",
+        params: [wethRichAddress],
+      });
+    });
+
+    it("Should fail if buyerAccount tries to get back more collateral than deposited by returning more buy tokens than bought", async function () {
+      const _collateralAmount = ethers.parseUnits("1000", 6);
+
+      // Approve the RiskophobeProtocol contract to transfer collateral tokens
+      await collateralToken.connect(buyerAccount).approve(riskophobeContractAddress, _collateralAmount);
+
+      await expect(riskophobeContract.connect(buyerAccount).returnTokens(0, _collateralAmount)).to.be.revertedWith(
+        "Collateral amount is higher than deposited",
+      );
+    });
+
+    // it("buyerAccount should return 500 USDC for 0.5 WETH", async function () {
+    //   const _collateralAmount = ethers.parseUnits("500", 6);
+
+    //   // Approve the RiskophobeProtocol contract to transfer collateral tokens
+    //   await collateralToken.connect(buyerAccount).approve(riskophobeContractAddress, _collateralAmount);
+
+    //   await expect(riskophobeContract.connect(buyerAccount).returnTokens(0, _collateralAmount)).not.to.be.reverted;
+    // });
   });
 });
