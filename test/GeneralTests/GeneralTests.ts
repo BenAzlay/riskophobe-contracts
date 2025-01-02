@@ -17,7 +17,7 @@ describe("Riskophobe General Tests", function () {
   let riskophobeContractAddress: string;
 
   let deployerCollateralTokenInitialBalance: bigint;
-  let offererSoldTokenInitialBalance: bigint;
+  let offererSoldTokenBalance: bigint;
 
   const infuraApiKey: string = vars.get("INFURA_API_KEY");
 
@@ -97,8 +97,8 @@ describe("Riskophobe General Tests", function () {
     const impersonatedSigner = await ethers.getSigner(wethRichAddress);
 
     // Transfer 10 WETH to offererAccount
-    offererSoldTokenInitialBalance = ethers.parseEther("10");
-    await soldToken.connect(impersonatedSigner).transfer(offererAccount.address, offererSoldTokenInitialBalance);
+    offererSoldTokenBalance = ethers.parseEther("10");
+    await soldToken.connect(impersonatedSigner).transfer(offererAccount.address, offererSoldTokenBalance);
 
     // Stop impersonation
     await network.provider.request({
@@ -187,9 +187,10 @@ describe("Riskophobe General Tests", function () {
       // Check offererAccount and contract balances
       const newOffererSoldTokenBalance = await soldToken.balanceOf(offererAccount.address);
       expect(newOffererSoldTokenBalance).to.be.eq(
-        offererSoldTokenInitialBalance - _soldTokenAmount,
+        offererSoldTokenBalance - _soldTokenAmount,
         "Initial balance minus amount offered",
       );
+      offererSoldTokenBalance -= _soldTokenAmount; // Update balance for upcoming test steps
       const newContractSoldTokenBalance = await soldToken.balanceOf(riskophobeContractAddress);
       expect(newContractSoldTokenBalance).to.be.eq(_soldTokenAmount, "Amount offered");
     });
@@ -205,6 +206,31 @@ describe("Riskophobe General Tests", function () {
       );
     });
 
+    it("Sould add 1 WETH to offer ID 0", async function () {
+      const oldContractSoldTokenBalance = await soldToken.balanceOf(riskophobeContractAddress);
+
+      const _soldTokenAmount = ethers.parseEther("1");
+
+      // Approve the RiskophobeProtocol contract to transfer sold tokens
+      await soldToken.connect(offererAccount).approve(riskophobeContractAddress, _soldTokenAmount);
+
+      // Working addSoldTokens txn
+      await expect(riskophobeContract.connect(offererAccount).addSoldTokens(0, _soldTokenAmount)).to.not.be.reverted;
+
+      // Check offererAccount and contract balances
+      const newOffererSoldTokenBalance = await soldToken.balanceOf(offererAccount.address);
+      expect(newOffererSoldTokenBalance).to.be.eq(
+        offererSoldTokenBalance - _soldTokenAmount,
+        "New offerer WETH balance minus",
+      );
+      offererSoldTokenBalance -= _soldTokenAmount; // Update balance for upcoming test steps
+      const newContractSoldTokenBalance = await soldToken.balanceOf(riskophobeContractAddress);
+      expect(newContractSoldTokenBalance).to.be.eq(
+        oldContractSoldTokenBalance + _soldTokenAmount,
+        "New WETH amount offered",
+      );
+    });
+
     it("set current block number to offer ID 0 start time", async () => {
       const offer0StartTime: bigint = (await riskophobeContract.offers(0)).startTime;
       const newBlockTs: string = offer0StartTime.toString();
@@ -215,7 +241,7 @@ describe("Riskophobe General Tests", function () {
 
     it("Should buy 1 WETH for 1000 USDC from offer ID 0", async function () {
       const _collateralAmountIn = ethers.parseUnits("1000", 6);
-      const tooHighCollateralAmountIn = ethers.parseUnits("3000", 6);
+      const tooHighCollateralAmountIn = ethers.parseUnits("4000", 6);
 
       // Approve the RiskophobeProtocol contract to transfer collateral tokens
       await collateralToken.connect(buyerAccount).approve(riskophobeContractAddress, tooHighCollateralAmountIn);
@@ -238,7 +264,7 @@ describe("Riskophobe General Tests", function () {
       const boughtAmount = ethers.parseEther("0.99");
       const newBuyerSoldTokenBalance = await soldToken.balanceOf(buyerAccount.address);
       expect(newBuyerSoldTokenBalance).to.be.eq(boughtAmount, "Bought amount sould be 0.99 WETH");
-      const remainingSoldTokens = ethers.parseEther("1.01");
+      const remainingSoldTokens = ethers.parseEther("2.01");
       const newContractSoldTokenBalance = await soldToken.balanceOf(riskophobeContractAddress);
       expect(newContractSoldTokenBalance).to.be.eq(
         remainingSoldTokens,
