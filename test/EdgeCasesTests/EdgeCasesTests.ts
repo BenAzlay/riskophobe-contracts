@@ -1,17 +1,13 @@
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
-import { time } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import { ethers, network } from "hardhat";
 import { vars } from "hardhat/config";
 
 import { IERC20Metadata, RiskophobeProtocol } from "../../types";
 
-const getAmountToReturn = (collateralReturned: bigint, exchangeRate: bigint) => {
-  return (collateralReturned * exchangeRate) / BigInt(10 ** 18);
-};
-
 describe("Riskophobe Edge Cases Tests", function () {
   let buyerAccount: SignerWithAddress;
+  let secondBuyerAccount: SignerWithAddress;
   let offererAccount: SignerWithAddress;
 
   let soldToken: IERC20Metadata;
@@ -28,7 +24,7 @@ describe("Riskophobe Edge Cases Tests", function () {
   const infuraApiKey: string = vars.get("INFURA_API_KEY");
 
   before(async function () {
-    [buyerAccount, offererAccount] = await ethers.getSigners();
+    [buyerAccount, offererAccount, secondBuyerAccount] = await ethers.getSigners();
 
     const jsonRpcUrl: string = `https://mainnet.infura.io/v3/${infuraApiKey}`;
 
@@ -48,6 +44,10 @@ describe("Riskophobe Edge Cases Tests", function () {
     // Load testing addresses with enough ETH to pay for gas
     await network.provider.send("hardhat_setBalance", [
       buyerAccount.address,
+      "0x314DC6448D932AE0A456589C0000", // 999999999999999 ETH
+    ]);
+    await network.provider.send("hardhat_setBalance", [
+      secondBuyerAccount.address,
       "0x314DC6448D932AE0A456589C0000", // 999999999999999 ETH
     ]);
     await network.provider.send("hardhat_setBalance", [
@@ -71,7 +71,7 @@ describe("Riskophobe Edge Cases Tests", function () {
     riskophobeContractAddress = await riskophobeContract.getAddress();
   });
 
-  it("transfer 1,000,000 collateral tokens (USDC) to buyerAccount", async () => {
+  it("transfer 1,000,000 collateral tokens (USDC) to buyerAccount and secondBuyerAccount", async () => {
     // Fork Ethereum Mainnet and impersonate a USDC-rich address
     const usdcRichAddress = "0x55fe002aeff02f77364de339a1292923a15844b8"; // USDC-rich address
     await network.provider.request({
@@ -80,11 +80,17 @@ describe("Riskophobe Edge Cases Tests", function () {
     });
     const impersonatedSigner = await ethers.getSigner(usdcRichAddress);
 
-    // Transfer 1M USDC to buyerAccount
-    deployerCollateralTokenInitialBalance = ethers.parseUnits("1000000", 6);
+    // Transfer 10M USDC to buyerAccount
+    deployerCollateralTokenInitialBalance = ethers.parseUnits("10000000", 6);
     await collateralToken
       .connect(impersonatedSigner)
       .transfer(buyerAccount.address, deployerCollateralTokenInitialBalance);
+
+    // Transfer 10M USDC to secondBuyerAccount
+    deployerCollateralTokenInitialBalance = ethers.parseUnits("10000000", 6);
+    await collateralToken
+      .connect(impersonatedSigner)
+      .transfer(secondBuyerAccount.address, deployerCollateralTokenInitialBalance);
 
     // Stop impersonation
     await network.provider.request({
@@ -93,7 +99,7 @@ describe("Riskophobe Edge Cases Tests", function () {
     });
   });
 
-  it("transfer 10 sold tokens (WETH) to offererAccount", async () => {
+  it("transfer 100 sold tokens (WETH) to offererAccount", async () => {
     // Fork Ethereum Mainnet and impersonate a WETH-rich address
     const wethRichAddress = "0x57757E3D981446D585Af0D9Ae4d7DF6D64647806"; // WETH-rich address
     await network.provider.request({
@@ -103,7 +109,7 @@ describe("Riskophobe Edge Cases Tests", function () {
     const impersonatedSigner = await ethers.getSigner(wethRichAddress);
 
     // Transfer 10 WETH to offererAccount
-    offererSoldTokenBalance = ethers.parseEther("10");
+    offererSoldTokenBalance = ethers.parseEther("100");
     await soldToken.connect(impersonatedSigner).transfer(offererAccount.address, offererSoldTokenBalance);
 
     // Stop impersonation
@@ -171,5 +177,66 @@ describe("Riskophobe Edge Cases Tests", function () {
     const boughtAmount = ethers.parseEther("0");
     const newBuyerSoldTokenBalance = await soldToken.balanceOf(buyerAccount.address);
     expect(newBuyerSoldTokenBalance).to.be.eq(boughtAmount, "Bought amount sould be 0 WETH");
+  });
+
+  it("Should create an offer of WETH for USDC with 1:1000 exchange rate", async function () {
+    const _startTime = 1732995840; // Nov 30, 2024 7:44:00 PM
+    const _endTime = 1735569863; // Dec-30-2024 02:44:23 PM +UTC => 1 month later
+
+    const _collateralToken = await collateralToken.getAddress();
+    const _soldToken = await soldToken.getAddress();
+    const _soldTokenAmount: bigint = ethers.parseEther("20"); // 20 WETH sold => 20,000 USDC buyable
+    const correspondingCollateralAmount: bigint = ethers.parseUnits("20000", 6); // 20,000 USDC
+    exchangeRate = (_soldTokenAmount * BigInt(10 ** 18)) / correspondingCollateralAmount;
+    const _creatorFeeBp = 100; // 1% fee
+
+    // Approve the RiskophobeProtocol contract to transfer sold tokens
+    await soldToken.connect(offererAccount).approve(riskophobeContractAddress, _soldTokenAmount);
+
+    // Working createOffer txn
+    await expect(
+      riskophobeContract
+        .connect(offererAccount)
+        .createOffer(_collateralToken, _soldToken, _soldTokenAmount, exchangeRate, _creatorFeeBp, _startTime, _endTime),
+    ).to.not.be.reverted;
+  });
+
+  it("set current block number to offer ID 1 start time", async () => {
+    const offer0StartTime: bigint = (await riskophobeContract.offers(1)).startTime;
+    const newBlockTs: string = offer0StartTime.toString();
+
+    await network.provider.send("evm_setNextBlockTimestamp", [newBlockTs]);
+    await network.provider.send("evm_mine");
+  });
+
+  it("Simulates two buyers buying simultaneously to test slippage", async function () {
+    // Buyers approve collateral token transfer
+    const buyerCollateralAmount = ethers.parseUnits("5000", 6); // 5000 USDC for Buyer 1
+    const secondBuyerCollateralAmount = ethers.parseUnits("6000", 6); // 6000 USDC for Buyer 2
+
+    await collateralToken.connect(buyerAccount).approve(riskophobeContractAddress, buyerCollateralAmount);
+    await collateralToken.connect(secondBuyerAccount).approve(riskophobeContractAddress, secondBuyerCollateralAmount);
+
+    // Simulate simultaneous buys using `Promise.all`
+    const buyerAccountTx = riskophobeContract
+      .connect(buyerAccount)
+      .buyTokens(1, buyerCollateralAmount, ethers.parseEther("4.95")); // Expecting ~4.95 WETH
+    const secondBuyerAccountTx = riskophobeContract
+      .connect(secondBuyerAccount)
+      .buyTokens(1, secondBuyerCollateralAmount, ethers.parseEther("5.94")); // Expecting ~5.94 WETH
+
+    // Execute transactions simultaneously
+    await Promise.all([buyerAccountTx, secondBuyerAccountTx]);
+
+    // Check buyerAccount's and secondBuyerAccount's sold token balances
+    const buyerAccountSoldTokenBalance = await soldToken.balanceOf(buyerAccount.address);
+    const secondBuyerAccountSoldTokenBalance = await soldToken.balanceOf(secondBuyerAccount.address);
+
+    expect(buyerAccountSoldTokenBalance).to.be.closeTo(ethers.parseEther("4.95"), ethers.parseEther("0.01")); // Allowing slight variance
+    expect(secondBuyerAccountSoldTokenBalance).to.be.closeTo(ethers.parseEther("5.94"), ethers.parseEther("0.01")); // Allowing slight variance
+
+    // Check the remaining sold tokens in the contract
+    const remainingSoldTokens = await soldToken.balanceOf(riskophobeContractAddress);
+    expect(remainingSoldTokens).to.be.closeTo(ethers.parseEther("10.11"), ethers.parseEther("0.01")); // Minimal remaining tokens
   });
 });
