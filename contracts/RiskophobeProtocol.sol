@@ -50,9 +50,14 @@ contract RiskophobeProtocol {
         uint256 indexed offerId,
         address indexed participant,
         uint256 soldTokenAmount,
-        uint256 netCollateralAmount
+        uint256 collateralAmount
     );
-    event TokensReturned(uint256 indexed offerId, address indexed participant, uint256 collateralAmount);
+    event TokensReturned(
+        uint256 indexed offerId,
+        address indexed participant,
+        uint256 soldTokenAmount,
+        uint256 collateralAmount
+    );
 
     /// @notice Event emitted when an offer is removed.
     event OfferRemoved(uint256 indexed offerId);
@@ -188,7 +193,7 @@ contract RiskophobeProtocol {
         // Transfer the sold tokens to the buyer
         offer.soldToken.safeTransfer(msg.sender, soldTokenAmount);
 
-        emit TokensBought(_offerId, msg.sender, soldTokenAmount, netCollateralAmount);
+        emit TokensBought(_offerId, msg.sender, soldTokenAmount, _collateralAmountIn);
     }
 
     /// @notice Buyer returns the sold tokens to offer
@@ -224,13 +229,13 @@ contract RiskophobeProtocol {
         // Transfer the collateral to the buyer
         offer.collateralToken.safeTransfer(msg.sender, _collateralAmount);
 
-        emit TokensReturned(_offerId, msg.sender, _collateralAmount);
+        emit TokensReturned(_offerId, msg.sender, soldTokenAmount, _collateralAmount);
     }
 
     /// @notice Removes an offer, transferring remaining tokens back to the creator.
     /// @dev Deletes the offer, only if the offer is ended or has no buyers.
     /// Emits a {OfferRemoved} event.
-    /// @param _offerId THe ID of the offer being removed.
+    /// @param _offerId The ID of the offer being removed.
     function removeOffer(uint256 _offerId) external {
         Offer memory offer = offers[_offerId];
         // An offer can be removed only if it has ended OR if no collateral was deposited into it
