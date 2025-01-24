@@ -1,196 +1,148 @@
-# Hardhat Template [![Open in Gitpod][gitpod-badge]][gitpod] [![Github Actions][gha-badge]][gha] [![Hardhat][hardhat-badge]][hardhat] [![License: MIT][license-badge]][license]
+# Riskophobe Contracts
 
-[gitpod]: https://gitpod.io/#https://github.com/paulrberg/hardhat-template
-[gitpod-badge]: https://img.shields.io/badge/Gitpod-Open%20in%20Gitpod-FFB45B?logo=gitpod
-[gha]: https://github.com/paulrberg/hardhat-template/actions
-[gha-badge]: https://github.com/paulrberg/hardhat-template/actions/workflows/ci.yml/badge.svg
-[hardhat]: https://hardhat.org/
-[hardhat-badge]: https://img.shields.io/badge/Built%20with-Hardhat-FFDB1C.svg
-[license]: https://opensource.org/licenses/MIT
-[license-badge]: https://img.shields.io/badge/License-MIT-blue.svg
+This repository contains the Solidity smart contracts that power the Riskophobe protocol. The contracts enable
+decentralized options trading, allowing users to buy tokens with the flexibility to return them and reclaim their
+collateral.
 
-A Hardhat-based template for developing Solidity smart contracts, with sensible defaults.
+---
 
-- [Hardhat](https://github.com/nomiclabs/hardhat): compile, run and test smart contracts
-- [TypeChain](https://github.com/ethereum-ts/TypeChain): generate TypeScript bindings for smart contracts
-- [Ethers](https://github.com/ethers-io/ethers.js/): renowned Ethereum library and wallet implementation
-- [Solhint](https://github.com/protofire/solhint): code linter
-- [Solcover](https://github.com/sc-forks/solidity-coverage): code coverage
-- [Prettier Plugin Solidity](https://github.com/prettier-solidity/prettier-plugin-solidity): code formatter
+## Overview
 
-## Getting Started
+The smart contracts in this repository are developed using the Hardhat framework. They are designed to be efficient,
+transparent, and secure, adhering to best practices in Ethereum smart contract development.
 
-Click the [`Use this template`](https://github.com/paulrberg/hardhat-template/generate) button at the top of the page to
-create a new repository with this repo as the initial state.
+Key features:
 
-## Features
+- **Options Trading**: Supports the creation and management of tokenized options.
+- **Collateral Management**: Handles collateral deposits and returns securely.
+- **Fee Mechanism**: Enables fee collection for offer creators.
+- **Event Logging**: Emits events for transparency and off-chain integrations.
 
-This template builds upon the frameworks and libraries mentioned above, so for details about their specific features,
-please consult their respective documentations.
+### Deployed Contract Address
 
-For example, for Hardhat, you can refer to the [Hardhat Tutorial](https://hardhat.org/tutorial) and the
-[Hardhat Docs](https://hardhat.org/docs). You might be in particular interested in reading the
-[Testing Contracts](https://hardhat.org/tutorial/testing-contracts) section.
+Riskophobe Protocol is deployed on the Base network:
 
-### Sensible Defaults
+**`0x0bBEeEab55594F1A03A2b34A6e454fb1d85519e4`**
 
-This template comes with sensible default configurations in the following files:
+---
 
-```text
-├── .editorconfig
-├── .eslintignore
-├── .eslintrc.yml
-├── .gitignore
-├── .prettierignore
-├── .prettierrc.yml
-├── .solcover.js
-├── .solhint.json
-└── hardhat.config.ts
+## Requirements
+
+Ensure you have the following installed before proceeding:
+
+- [Node.js](https://nodejs.org/) (version 16 or higher)
+- [npm](https://www.npmjs.com/) or [yarn](https://yarnpkg.com/)
+- [Hardhat](https://hardhat.org/)
+
+---
+
+## Installation
+
+Follow these steps to set up the project:
+
+### Clone the Repository
+
+```bash
+# Clone the repository
+$ git clone https://github.com/your-repo/riskophobe-contracts.git
+
+# Navigate into the project directory
+$ cd riskophobe-contracts
 ```
 
-### VSCode Integration
+### Install Dependencies
 
-This template is IDE agnostic, but for the best user experience, you may want to use it in VSCode alongside Nomic
-Foundation's [Solidity extension](https://marketplace.visualstudio.com/items?itemName=NomicFoundation.hardhat-solidity).
+```bash
+# Using npm
+$ npm install
 
-### GitHub Actions
-
-This template comes with GitHub Actions pre-configured. Your contracts will be linted and tested on every push and pull
-request made to the `main` branch.
-
-Note though that to make this work, you must use your `INFURA_API_KEY` and your `MNEMONIC` as GitHub secrets.
-
-For more information on how to set up GitHub secrets, check out the
-[docs](https://docs.github.com/en/actions/security-guides/using-secrets-in-github-actions).
-
-You can edit the CI script in [.github/workflows/ci.yml](./.github/workflows/ci.yml).
-
-## Usage
-
-### Pre Requisites
-
-First, you need to install the dependencies:
-
-```sh
-npm install
+# Or using yarn
+$ yarn install
 ```
 
-Then, you need to set up all the required
-[Hardhat Configuration Variables](https://hardhat.org/hardhat-runner/docs/guides/configuration-variables). You might
-also want to install some that are optional.
+---
 
-To assist with the setup process, run `bunx hardhat vars setup`. To set a particular value, such as a BIP-39 mnemonic
-variable, execute this:
+## Available Scripts
 
-```sh
-bunx hardhat vars set MNEMONIC
-? Enter value: ‣ here is where your twelve words mnemonic should be put my friend
+### Compile Contracts
+
+Compile the Solidity contracts using the Hardhat framework:
+
+```bash
+# Using npm
+$ npx hardhat compile
+
+# Or using yarn
+$ yarn hardhat compile
 ```
 
-If you do not already have a mnemonic, you can generate one using this [website](https://iancoleman.io/bip39/).
+### Run Tests
 
-### Compile
+Run the test suite to ensure contract functionality:
 
-Compile the smart contracts with Hardhat:
+```bash
+# Using npm
+$ npx hardhat test
 
-```sh
-npm run compile
+# Or using yarn
+$ yarn hardhat test
 ```
 
-### TypeChain
+### Deploy Contracts
 
-Compile the smart contracts and generate TypeChain bindings:
+Deploy the contracts to a local or test network:
 
-```sh
-npm run typechain
+1. Configure the network in `hardhat.config.ts`.
+2. Run the deployment script:
+
+```bash
+# Using npm
+$ npx hardhat run scripts/deploy.ts --network <network-name>
+
+# Or using yarn
+$ yarn hardhat run scripts/deploy.ts --network <network-name>
 ```
 
-### Test
+### Linting
 
-Run the tests with Hardhat:
+Check the code for linting issues:
 
-```sh
-npm run test
+```bash
+# Using npm
+$ npm run lint
+
+# Or using yarn
+$ yarn lint
 ```
 
-### Lint Solidity
+---
 
-Lint the Solidity code:
+## Project Structure
 
-```sh
-npm run lint:sol
+The repository is organized as follows:
+
+```
+contracts/
+├── RiskophobeProtocol.sol    # Main protocol contract
+scripts/
+├── deploy.ts                 # Deployment script
+test/
+├── RiskophobeProtocol.test.ts  # Unit tests
+hardhat.config.ts            # Hardhat configuration file
 ```
 
-### Lint TypeScript
+---
 
-Lint the TypeScript code:
+## Technology Stack
 
-```sh
-npm run lint:ts
-```
+- **Hardhat**: Development environment for Ethereum smart contracts
+- **Solidity**: Smart contract programming language
+- **TypeScript**: Scripting and testing language
+- **Ethers.js**: Library for Ethereum blockchain interactions
+- **Mocha & Chai**: Testing framework and assertion library
 
-### Coverage
-
-Generate the code coverage report:
-
-```sh
-npm run coverage
-```
-
-### Report Gas
-
-See the gas usage per unit test and average gas per method call:
-
-```sh
-REPORT_GAS=true npm run test
-```
-
-### Clean
-
-Delete the smart contract artifacts, the coverage reports and the Hardhat cache:
-
-```sh
-npm run clean
-```
-
-### Deploy
-
-Deploy the contracts to Hardhat Network:
-
-```sh
-npm run deploy:contracts
-```
-
-### Syntax Highlighting
-
-If you use VSCode, you can get Solidity syntax highlighting with the
-[hardhat-solidity](https://marketplace.visualstudio.com/items?itemName=NomicFoundation.hardhat-solidity) extension.
-
-## Using GitPod
-
-[GitPod](https://www.gitpod.io/) is an open-source developer platform for remote development.
-
-To view the coverage report generated by `npm run coverage`, just click `Go Live` from the status bar to turn the server
-on/off.
-
-## Local development with Ganache
-
-### Install Ganache
-
-```sh
-npm i -g ganache
-```
-
-### Run a Development Blockchain
-
-```sh
-ganache -s test
-```
-
-> The `-s test` passes a seed to the local chain and makes it deterministic
-
-Make sure to set the mnemonic in your `.env` file to that of the instance running with Ganache.
+---
 
 ## License
 
-This project is licensed under MIT.
+This project is licensed under the MIT License. See the `LICENSE` file for details.
